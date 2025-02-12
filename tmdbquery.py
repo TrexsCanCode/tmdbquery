@@ -40,7 +40,7 @@ def query_tmdb(api_key, movie_name):
     count = 0
     print("Cast")
     for credit in credits_response["cast"]:
-        print(f"\t{credit["id"]} - {credit["name"]}")
+        print(f"\t{credit["name"]}")
 
         # Follow the links for this person.
         cast_query_url = f"{base_url}/search/person?query={credit["name"]}"
@@ -55,7 +55,7 @@ def query_tmdb(api_key, movie_name):
         cast_response = response.json()
         films = cast_response["results"][0]["known_for"]
         for film in films:
-            if film["media_type"] == "movie" and film["title"] != movie_name:
+            if film["media_type"] == "movie" and film["title"].casefold() != movie_name.casefold():
                 print(f"\t\t{film["title"]}")
 
         count = count + 1
@@ -70,7 +70,7 @@ def query_tmdb(api_key, movie_name):
             or credit["job"] == "Director of Photography"
             or credit["job"] == "Original Music Composer"
         ):
-            print(f"\t{credit["id"]} - {credit["name"]} - {credit["job"]}")
+            print(f"\t{credit["name"]} - {credit["job"]}")
 
             # Follow the links for this person.
             crew_query_url = f"{base_url}/search/person?query={credit["name"]}"
@@ -85,7 +85,7 @@ def query_tmdb(api_key, movie_name):
             crew_response = response.json()
             films = crew_response["results"][0]["known_for"]
             for film in films:
-                if film["media_type"] == "movie":
+                if film["media_type"] == "movie" and film["title"].casefold() != movie_name.casefold():
                     print(f"\t\t{film["title"]}")
 
 
