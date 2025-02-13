@@ -3,38 +3,18 @@ from argparse import ArgumentParser
 import requests
 
 
-def query_tmdb(api_key, movie_name):
-    base_url = "https://api.themoviedb.org/3"
+BASE_URL = "https://api.themoviedb.org/3"
 
-    movie_query_url = f"{base_url}/search/movie?query={movie_name}"
 
-    api_dict = {"api_key": api_key}
+def query_tmdb_movie(api_key, movie_name):
+    movie_query_url = f"{BASE_URL}/search/movie?query={movie_name}"
 
-    headers = {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "Connection": "close",
-    }
+    movie_id_response = _make_request(api_key, movie_query_url)
+    movie_id = movie_id_response["results"][0]["id"]
 
-    response = requests.get(
-        movie_query_url,
-        params=api_dict,
-        headers=headers,
-    )
-    response.raise_for_status()
+    movie_credit_url = f"{BASE_URL}/movie/{movie_id}/credits"
 
-    movie_id = response.json()["results"][0]["id"]
-
-    movie_credit_url = f"{base_url}/movie/{movie_id}/credits"
-
-    response = requests.get(
-        movie_credit_url,
-        params=api_dict,
-        headers=headers,
-    )
-    response.raise_for_status()
-
-    credits_response = response.json()
+    credits_response = _make_request(api_key, movie_credit_url)
 
     # need director, writer, composer, featuring (cast)
     # think cast is limited to 10.
@@ -44,16 +24,10 @@ def query_tmdb(api_key, movie_name):
         print(f"\t{credit['name']}")
 
         # Follow the links for this person.
-        cast_query_url = f"{base_url}/search/person?query={credit['name']}"
+        cast_query_url = f"{BASE_URL}/search/person?query={credit['name']}"
 
-        response = requests.get(
-            cast_query_url,
-            params=api_dict,
-            headers=headers,
-        )
-        response.raise_for_status()
+        cast_response = _make_request(api_key, cast_query_url)
 
-        cast_response = response.json()
         films = cast_response["results"][0]["known_for"]
         for film in films:
             if (
@@ -77,16 +51,10 @@ def query_tmdb(api_key, movie_name):
             print(f"\t{credit['name']} - {credit['job']}")
 
             # Follow the links for this person.
-            crew_query_url = f"{base_url}/search/person?query={credit['name']}"
+            crew_query_url = f"{BASE_URL}/search/person?query={credit['name']}"
 
-            response = requests.get(
-                crew_query_url,
-                params=api_dict,
-                headers=headers,
-            )
-            response.raise_for_status()
+            crew_response = _make_request(api_key, crew_query_url)
 
-            crew_response = response.json()
             films = crew_response["results"][0]["known_for"]
             for film in films:
                 if (
@@ -96,12 +64,53 @@ def query_tmdb(api_key, movie_name):
                     print(f"\t\t{film['title']}")
 
 
+def query_tmdb_person(api_key, person):
+    person_query_url = f"{BASE_URL}/search/person?query={person}"
+
+    person_response = _make_request(api_key, person_query_url)
+
+    # The request might do some fuzzy searching based on the name given
+    # so print the name of the person the results actually respond to.
+    print(person_response['results'][0]['name'])
+
+    films = person_response["results"][0]["known_for"]
+    for film in films:
+        if film["media_type"] == "movie":
+            print(f"\t{film['title']}")
+
+
+def _make_request(api_key, url):
+    api_dict = {"api_key": api_key}
+
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Connection": "close",
+    }
+
+    response = requests.get(
+        url,
+        params=api_dict,
+        headers=headers,
+    )
+    response.raise_for_status()
+
+    return response.json()
+
+
 if __name__ == "__main__":
     parser = ArgumentParser(prog="TMDB Query", description="Query TMDB for film links")
 
     parser.add_argument("--api_key", help="The TMDB API key")
-    parser.add_argument("--movie_name", help="The name of the movie to query")
+
+    query_group = parser.add_mutually_exclusive_group(required=True)
+    query_group.add_argument("--movie_name", help="The name of the movie to query")
+    query_group.add_argument("--person", help="The name of the movie to query")
 
     args = parser.parse_args()
 
-    query_tmdb(args.api_key, args.movie_name)
+    # Either movie name or person must be set so don't need to check both values.
+    if args.movie_name:
+        query_tmdb_movie(args.api_key, args.movie_name)
+    else:
+        query_tmdb_person(args.api_key, args.person)
