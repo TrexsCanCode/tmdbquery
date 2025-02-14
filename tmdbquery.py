@@ -77,10 +77,24 @@ def query_tmdb_person(api_key, person):
     # given so print the name of the person the results actually respond to.
     print(person_response['results'][0]['name'])
 
-    films = person_response["results"][0]["known_for"]
-    for film in films:
-        if film["media_type"] == "movie":
-            print(f"\t{film['title']}")
+    # Get the person's ID to then get their movie credits.
+    id = person_response['results'][0]['id']
+    movie_credits_query_url = f"{BASE_URL}/person/{id}/movie_credits"
+
+    movie_credits_response = _make_request(api_key, movie_credits_query_url)
+
+    print("\tCast")
+    films_as_cast = movie_credits_response["cast"]
+    for film in films_as_cast:
+        print(f"\t\t{film['title']}")
+
+    print("\tCrew")
+
+    # Crew may contain duplicates so filter them out via a set.
+    crew_films = set([film['title'] for film in movie_credits_response["crew"]])
+
+    for film in crew_films:
+        print(f"\t\t{film}")
 
 
 def _make_request(api_key, url):
