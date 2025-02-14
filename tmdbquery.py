@@ -10,18 +10,22 @@ def query_tmdb_movie(api_key, movie_name):
     movie_query_url = f"{BASE_URL}/search/movie?query={movie_name}"
 
     movie_id_response = _make_request(api_key, movie_query_url)
+
+    # The Movie DB search might do some fuzzy searching based on the movie name
+    # given so print the name of the movie the results actually respond to.
+    print(movie_id_response['results'][0]['title'])
+
     movie_id = movie_id_response["results"][0]["id"]
 
     movie_credit_url = f"{BASE_URL}/movie/{movie_id}/credits"
 
     credits_response = _make_request(api_key, movie_credit_url)
 
-    # need director, writer, composer, featuring (cast)
-    # think cast is limited to 10.
+    # Limit the cast to 10.
     count = 0
-    print("Cast")
+    print("\tCast")
     for credit in credits_response["cast"]:
-        print(f"\t{credit['name']}")
+        print(f"\t\t{credit['name']}")
 
         # Follow the links for this person.
         cast_query_url = f"{BASE_URL}/search/person?query={credit['name']}"
@@ -34,13 +38,13 @@ def query_tmdb_movie(api_key, movie_name):
                 film["media_type"] == "movie"
                 and film["title"].casefold() != movie_name.casefold()
             ):
-                print(f"\t\t{film['title']}")
+                print(f"\t\t\t{film['title']}")
 
         count = count + 1
         if count >= 10:
             break
 
-    print("Crew")
+    print("\tCrew")
     for credit in credits_response["crew"]:
         if (
             credit["job"] == "Director"
@@ -48,7 +52,7 @@ def query_tmdb_movie(api_key, movie_name):
             or credit["job"] == "Director of Photography"
             or credit["job"] == "Original Music Composer"
         ):
-            print(f"\t{credit['name']} - {credit['job']}")
+            print(f"\t\t{credit['name']} - {credit['job']}")
 
             # Follow the links for this person.
             crew_query_url = f"{BASE_URL}/search/person?query={credit['name']}"
@@ -61,7 +65,7 @@ def query_tmdb_movie(api_key, movie_name):
                     film["media_type"] == "movie"
                     and film["title"].casefold() != movie_name.casefold()
                 ):
-                    print(f"\t\t{film['title']}")
+                    print(f"\t\t\t{film['title']}")
 
 
 def query_tmdb_person(api_key, person):
@@ -69,8 +73,8 @@ def query_tmdb_person(api_key, person):
 
     person_response = _make_request(api_key, person_query_url)
 
-    # The request might do some fuzzy searching based on the name given
-    # so print the name of the person the results actually respond to.
+    # The Movie DB search might do some fuzzy searching based on the name
+    # given so print the name of the person the results actually respond to.
     print(person_response['results'][0]['name'])
 
     films = person_response["results"][0]["known_for"]
