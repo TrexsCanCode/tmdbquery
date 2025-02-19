@@ -78,23 +78,22 @@ def query_tmdb_person(api_key, person):
     print(person_response['results'][0]['name'])
 
     # Get the person's ID to then get their movie credits.
-    id = person_response['results'][0]['id']
-    movie_credits_query_url = f"{BASE_URL}/person/{id}/movie_credits"
+    person_id = person_response['results'][0]['id']
+    movie_credits_query_url = f"{BASE_URL}/person/{person_id}/movie_credits"
 
     movie_credits_response = _make_request(api_key, movie_credits_query_url)
 
-    print("\tCast")
-    films_as_cast = movie_credits_response["cast"]
-    for film in films_as_cast:
-        print(f"\t\t{film['title']}")
+    films_as_cast = _parse_movie_credits(movie_credits_response["cast"])
+    if films_as_cast:
+        print("\tCast")
 
-    print("\tCrew")
+        [print(f"\t\t{film}") for film in films_as_cast]
 
-    # Crew may contain duplicates so filter them out via a set.
-    crew_films = set([film['title'] for film in movie_credits_response["crew"]])
+    films_as_crew = _parse_movie_credits(movie_credits_response["crew"])
+    if films_as_crew:
+        print("\tCrew")
 
-    for film in crew_films:
-        print(f"\t\t{film}")
+        [print(f"\t\t{film}") for film in films_as_crew]
 
 
 def _make_request(api_key, url):
@@ -114,6 +113,14 @@ def _make_request(api_key, url):
     response.raise_for_status()
 
     return response.json()
+
+
+def _parse_movie_credits(films):
+    # Filter out any documentaries (whose genre ID is 99).
+    films = list(filter(lambda x: 99 not in x['genre_ids'], films))
+
+    # Movie credits may contain duplicates, particular for crew credits, so filter them out via a set.
+    return list(set([film['title'] for film in films]))
 
 
 if __name__ == "__main__":
