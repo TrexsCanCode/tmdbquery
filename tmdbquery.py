@@ -28,17 +28,12 @@ def query_tmdb_movie(api_key, movie_name):
         print(f"\t\t{credit['name']}")
 
         # Follow the links for this person.
-        cast_query_url = f"{BASE_URL}/search/person?query={credit['name']}"
+        person_id = credit['id']
+        (cast_credits, _) = _query_tmdb_person_movie_credits(api_key, person_id)
 
-        cast_response = _make_request(api_key, cast_query_url)
-
-        films = cast_response["results"][0]["known_for"]
-        for film in films:
-            if (
-                film["media_type"] == "movie"
-                and film["title"].casefold() != movie_name.casefold()
-            ):
-                print(f"\t\t\t{film['title']}")
+        for cast_credit in cast_credits:
+            if cast_credit.casefold() != movie_name.casefold():
+                print(f"\t\t\t{cast_credit}")
 
         count = count + 1
         if count >= 10:
@@ -55,17 +50,12 @@ def query_tmdb_movie(api_key, movie_name):
             print(f"\t\t{credit['name']} - {credit['job']}")
 
             # Follow the links for this person.
-            crew_query_url = f"{BASE_URL}/search/person?query={credit['name']}"
+            person_id = credit['id']
+            (cast_credits, _) = _query_tmdb_person_movie_credits(api_key, person_id)
 
-            crew_response = _make_request(api_key, crew_query_url)
-
-            films = crew_response["results"][0]["known_for"]
-            for film in films:
-                if (
-                    film["media_type"] == "movie"
-                    and film["title"].casefold() != movie_name.casefold()
-                ):
-                    print(f"\t\t\t{film['title']}")
+            for film in cast_credits:
+                if film.casefold() != movie_name.casefold():
+                    print(f"\t\t\t{film}")
 
 
 def query_tmdb_person(api_key, person):
@@ -79,21 +69,16 @@ def query_tmdb_person(api_key, person):
 
     # Get the person's ID to then get their movie credits.
     person_id = person_response['results'][0]['id']
-    movie_credits_query_url = f"{BASE_URL}/person/{person_id}/movie_credits"
 
-    movie_credits_response = _make_request(api_key, movie_credits_query_url)
+    (cast_credits, crew_credits) = _query_tmdb_person_movie_credits(api_key, person_id)
 
-    films_as_cast = _parse_movie_credits(movie_credits_response["cast"])
-    if films_as_cast:
+    if cast_credits:
         print("\tCast")
+        [print(f"\t\t{film}") for film in cast_credits]
 
-        [print(f"\t\t{film}") for film in films_as_cast]
-
-    films_as_crew = _parse_movie_credits(movie_credits_response["crew"])
-    if films_as_crew:
+    if crew_credits:
         print("\tCrew")
-
-        [print(f"\t\t{film}") for film in films_as_crew]
+        [print(f"\t\t{film}") for film in crew_credits]
 
 
 def _make_request(api_key, url):
@@ -121,6 +106,17 @@ def _parse_movie_credits(films):
 
     # Movie credits may contain duplicates, particular for crew credits, so filter them out via a set.
     return list(set([film['title'] for film in films]))
+
+
+def _query_tmdb_person_movie_credits(api_key, person_id):
+    movie_credits_query_url = f"{BASE_URL}/person/{person_id}/movie_credits"
+
+    movie_credits_response = _make_request(api_key, movie_credits_query_url)
+
+    cast_credits = _parse_movie_credits(movie_credits_response["cast"])
+    crew_credits = _parse_movie_credits(movie_credits_response["crew"])
+
+    return cast_credits, crew_credits
 
 
 if __name__ == "__main__":
