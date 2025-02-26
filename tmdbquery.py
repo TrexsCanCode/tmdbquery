@@ -30,10 +30,6 @@ def query_tmdb_movie(api_key, movie_name):
 
         [print(f"\t\t\t{film}") for film in cast_credits if film.casefold() != movie_name.casefold()]
 
-        for cast_credit in cast_credits:
-            if cast_credit.casefold() != movie_name.casefold():
-                print(f"\t\t\t{cast_credit}")
-
         count = count + 1
         if count >= 10:
             break
