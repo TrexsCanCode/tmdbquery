@@ -143,7 +143,7 @@ if __name__ == "__main__":
     parser.add_argument("--api_key", help="The TMDB API key")
 
     query_group = parser.add_mutually_exclusive_group(required=True)
-    query_group.add_argument("--movie_name", help="The name of the movie to query")
+    query_group.add_argument("--movie", help="The name of the movie to query")
     query_group.add_argument("--person", help="The name of the movie to query")
 
     args = parser.parse_args()
