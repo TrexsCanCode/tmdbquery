@@ -7,9 +7,10 @@ Before running the script you will need a https://www.themoviedb.org/ API key.
 
 ## Usage
 
-The script takes two arguments:
+The script takes at least two arguments:
 * --api_key - The TMDB API key
 * And one of:
+    * --find_link [movie 1] [movie 2] - Find the links between the two given movies
     * --movie - The name of the movie you are querying
     * --person - The name of the person you are querying
 

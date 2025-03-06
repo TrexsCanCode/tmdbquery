@@ -6,22 +6,52 @@ from requests.exceptions import HTTPError
 
 BASE_URL = "https://api.themoviedb.org/3"
 
+# List of the crew roles that we are interested in.
+REQUIRED_CREW_ROLES = ["Director", "Writer", "Director of Photography", "Original Music Composer"]
+
+
+def find_link(api_key, movie_from_name, movie_to_name):
+    if movie_from_name == movie_to_name:
+        print("Must provide two different movies to find link between")
+        return
+
+    (movie_from_name, movie_from_credits_response) = _query_movie_credits(api_key, movie_from_name)
+
+    (movie_to_name, movie_to_credits_response) = _query_movie_credits(api_key, movie_to_name)
+
+    # Get the list of cast from both films and compare them.
+    cast_from_names = [n.get('name') for n in movie_from_credits_response["cast"]]
+    cast_to_names = [n.get('name') for n in movie_to_credits_response["cast"]]
+
+    common_cast = list(set(cast_from_names).intersection(cast_to_names))
+
+    # Get the list of crew from both films and compare them.
+    crew_from_names = [n.get('name') for n in movie_from_credits_response["crew"]]
+    crew_to_names = [n.get('name') for n in movie_to_credits_response["crew"]]
+
+    common_crew = list(set(crew_from_names).intersection(crew_to_names))
+
+    if not common_cast and not common_crew:
+        print(f"No links found between {movie_from_name} and {movie_to_name}")
+    else:
+        print(f"Found the following links between {movie_from_name} and {movie_to_name}:\n")
+        if common_cast:
+            print("Cast links:")
+            [print(f"\t{cast}") for cast in common_cast]
+        if common_crew:
+            print("Crew links:")
+            [print(f"\t{crew}") for crew in common_crew]
+
 
 def query_tmdb_movie(api_key, movie_name):
-    movie_response = _query_movie(api_key, movie_name)
+    (movie_name, movie_credits_response) = _query_movie_credits(api_key, movie_name)
 
-    # The Movie DB search might do some fuzzy searching based on the movie name
-    # given so print the name of the movie the results actually respond to.
-    print(movie_response['results'][0]['title'])
-
-    movie_id = movie_response["results"][0]["id"]
-
-    credits_response = _query_movie_credits(api_key, movie_id)
+    print(movie_name)
 
     # Limit the cast to 10.
     count = 0
     print("\tCast")
-    for credit in credits_response["cast"]:
+    for credit in movie_credits_response["cast"]:
         print(f"\t\t{credit['name']}")
 
         # Follow the links for this person.
@@ -35,20 +65,14 @@ def query_tmdb_movie(api_key, movie_name):
             break
 
     print("\tCrew")
-    for credit in credits_response["crew"]:
-        if (
-            credit["job"] == "Director"
-            or credit["job"] == "Writer"
-            or credit["job"] == "Director of Photography"
-            or credit["job"] == "Original Music Composer"
-        ):
-            print(f"\t\t{credit['name']} - {credit['job']}")
+    for credit in movie_credits_response["crew"]:
+        print(f"\t\t{credit['name']} - {credit['job']}")
 
-            # Follow the links for this person.
-            person_id = credit['id']
-            (cast_credits, _) = _query_person_movie_credits(api_key, person_id)
+        # Follow the links for this person.
+        person_id = credit['id']
+        (cast_credits, _) = _query_person_movie_credits(api_key, person_id)
 
-            [print(f"\t\t\t{film}") for film in cast_credits if film.casefold() != movie_name.casefold()]
+        [print(f"\t\t\t{film}") for film in cast_credits if film.casefold() != movie_name.casefold()]
 
 
 def query_tmdb_person(api_key, person):
@@ -101,7 +125,7 @@ def _parse_movie_credits(films):
     return list(set([film['title'] for film in films]))
 
 
-def _query_movie(api_key, movie_name):
+def _query_movie_credits(api_key, movie_name):
     movie_query_url = f"{BASE_URL}/search/movie?query={movie_name}"
 
     movie_response = _make_request(api_key, movie_query_url)
@@ -109,10 +133,8 @@ def _query_movie(api_key, movie_name):
     if not movie_response['results']:
         raise RuntimeError(f"Query for movie {movie_name} failed")
 
-    return movie_response
+    movie_id = movie_response["results"][0]["id"]
 
-
-def _query_movie_credits(api_key, movie_id):
     movie_credits_url = f"{BASE_URL}/movie/{movie_id}/credits"
 
     movie_credits_response = _make_request(api_key, movie_credits_url)
@@ -120,7 +142,12 @@ def _query_movie_credits(api_key, movie_id):
     if not movie_credits_response['id']:
         raise RuntimeError(f"Query for movie credits for movie {movie_id} failed")
 
-    return movie_credits_response
+    # Filter the crew credits to only the roles we are interested in.
+    movie_credits_response["crew"] = [n for n in movie_credits_response["crew"] if n.get('job') in REQUIRED_CREW_ROLES]
+
+    # The Movie DB query might do some fuzzy searching based on the movie name
+    # given so return the actual movie name alongside the credits.
+    return (movie_response['results'][0]['title'], movie_credits_response)
 
 
 def _query_person_movie_credits(api_key, person_id):
@@ -143,6 +170,7 @@ if __name__ == "__main__":
     parser.add_argument("--api_key", help="The TMDB API key")
 
     query_group = parser.add_mutually_exclusive_group(required=True)
+    query_group.add_argument("--find_link", help="Find the link between two movies", nargs=2)
     query_group.add_argument("--movie", help="The name of the movie to query")
     query_group.add_argument("--person", help="The name of the movie to query")
 
@@ -150,9 +178,11 @@ if __name__ == "__main__":
 
     # Either movie name or person must be set so don't need to check both values.
     try:
+        if args.find_link:
+            find_link(args.api_key, args.find_link[0], args.find_link[1])
         if args.movie:
             query_tmdb_movie(args.api_key, args.movie)
-        else:
+        elif args.person:
             query_tmdb_person(args.api_key, args.person)
     except HTTPError as e:
         print("Error occurred whilst querying tmdb")
