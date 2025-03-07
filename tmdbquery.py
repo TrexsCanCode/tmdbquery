@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+from typing import Any, Dict, List, Tuple
 
 import requests
 from requests.exceptions import HTTPError
@@ -64,15 +65,25 @@ def query_tmdb_movie(api_key, movie_name):
         if count >= 10:
             break
 
-    print("\tCrew")
+    # Loop through the crew response, keeping track of who we have already requested.
+    crew_credits: Dict[str, Tuple[List[str], Dict[str, Any]]] = {}
     for credit in movie_credits_response["crew"]:
-        print(f"\t\t{credit['name']} - {credit['job']}")
+        crew_name = credit['name']
+        crew_details = crew_credits.get(crew_name)
+        if crew_details:
+            # Have already got credits for this crew member so just add the new role to the role list.
+            crew_details[0].append(credit['job'])
+        else:
+            # Haven't got this person's credits yet so follow the links for this person.
+            person_id = credit['id']
+            (cast_credits, _) = _query_person_movie_credits(api_key, person_id)
+            crew_credits[crew_name] = ([credit['job']], cast_credits)
 
-        # Follow the links for this person.
-        person_id = credit['id']
-        (cast_credits, _) = _query_person_movie_credits(api_key, person_id)
-
-        [print(f"\t\t\t{film}") for film in cast_credits if film.casefold() != movie_name.casefold()]
+    # Now print out the crew credits.
+    print("\tCrew")
+    for name, (roles, credits) in crew_credits.items():
+        print(f"\t\t{name} - {', '.join(roles)}")
+        [print(f"\t\t\t{film}") for film in credits if film.casefold() != movie_name.casefold()]
 
 
 def query_tmdb_person(api_key, person):
