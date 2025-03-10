@@ -1,17 +1,18 @@
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 from typing import Any, Dict, List, Tuple
 
 import requests
+from requests import Response
 from requests.exceptions import HTTPError
 
 
-BASE_URL = "https://api.themoviedb.org/3"
+BASE_URL: str = "https://api.themoviedb.org/3"
 
 # List of the crew roles that we are interested in.
-REQUIRED_CREW_ROLES = ["Director", "Writer", "Director of Photography", "Original Music Composer"]
+REQUIRED_CREW_ROLES: List[str] = ["Director", "Writer", "Director of Photography", "Original Music Composer"]
 
 
-def find_link(api_key, movie_from_name, movie_to_name):
+def find_link(api_key: str, movie_from_name: str, movie_to_name: str) -> None:
     if movie_from_name == movie_to_name:
         print("Must provide two different movies to find link between")
         return
@@ -21,16 +22,16 @@ def find_link(api_key, movie_from_name, movie_to_name):
     (movie_to_name, movie_to_credits_response) = _query_movie_credits(api_key, movie_to_name)
 
     # Get the list of cast from both films and compare them.
-    cast_from_names = [n.get('name') for n in movie_from_credits_response["cast"]]
-    cast_to_names = [n.get('name') for n in movie_to_credits_response["cast"]]
+    cast_from_names: List[str] = [n.get('name') for n in movie_from_credits_response["cast"]]
+    cast_to_names: List[str] = [n.get('name') for n in movie_to_credits_response["cast"]]
 
-    common_cast = list(set(cast_from_names).intersection(cast_to_names))
+    common_cast: List[str] = list(set(cast_from_names).intersection(cast_to_names))
 
     # Get the list of crew from both films and compare them.
-    crew_from_names = [n.get('name') for n in movie_from_credits_response["crew"]]
-    crew_to_names = [n.get('name') for n in movie_to_credits_response["crew"]]
+    crew_from_names: List[str] = [n.get('name') for n in movie_from_credits_response["crew"]]
+    crew_to_names: List[str] = [n.get('name') for n in movie_to_credits_response["crew"]]
 
-    common_crew = list(set(crew_from_names).intersection(crew_to_names))
+    common_crew: List[str] = list(set(crew_from_names).intersection(crew_to_names))
 
     if not common_cast and not common_crew:
         print(f"No links found between {movie_from_name} and {movie_to_name}")
@@ -44,19 +45,19 @@ def find_link(api_key, movie_from_name, movie_to_name):
             [print(f"\t{crew}") for crew in common_crew]
 
 
-def query_tmdb_movie(api_key, movie_name):
+def query_tmdb_movie(api_key: str, movie_name: str) -> None:
     (movie_name, movie_credits_response) = _query_movie_credits(api_key, movie_name)
 
     print(movie_name)
 
     # Limit the cast to 10.
-    count = 0
+    count: int = 0
     print("\tCast")
     for credit in movie_credits_response["cast"]:
         print(f"\t\t{credit['name']}")
 
         # Follow the links for this person.
-        person_id = credit['id']
+        person_id: int = credit['id']
         (cast_credits, _) = _query_person_movie_credits(api_key, person_id)
 
         [print(f"\t\t\t{film}") for film in cast_credits if film.casefold() != movie_name.casefold()]
@@ -66,9 +67,9 @@ def query_tmdb_movie(api_key, movie_name):
             break
 
     # Loop through the crew response, keeping track of who we have already requested.
-    crew_credits: Dict[str, Tuple[List[str], Dict[str, Any]]] = {}
+    crew_credits: Dict[str, Tuple[List[str], List[str]]] = {}
     for credit in movie_credits_response["crew"]:
-        crew_name = credit['name']
+        crew_name: str = credit['name']
         crew_details = crew_credits.get(crew_name)
         if crew_details:
             # Have already got credits for this crew member so just add the new role to the role list.
@@ -86,17 +87,17 @@ def query_tmdb_movie(api_key, movie_name):
         [print(f"\t\t\t{film}") for film in credits if film.casefold() != movie_name.casefold()]
 
 
-def query_tmdb_person(api_key, person):
-    person_query_url = f"{BASE_URL}/search/person?query={person}"
+def query_tmdb_person(api_key: str, person: str) -> None:
+    person_query_url: str = f"{BASE_URL}/search/person?query={person}"
 
-    person_response = _make_request(api_key, person_query_url)
+    person_response: Any = _make_request(api_key, person_query_url)
 
     # The Movie DB search might do some fuzzy searching based on the name
     # given so print the name of the person the results actually respond to.
     print(person_response['results'][0]['name'])
 
     # Get the person's ID to then get their movie credits.
-    person_id = person_response['results'][0]['id']
+    person_id: int = person_response['results'][0]['id']
 
     (cast_credits, crew_credits) = _query_person_movie_credits(api_key, person_id)
 
@@ -109,16 +110,16 @@ def query_tmdb_person(api_key, person):
         [print(f"\t\t{film}") for film in crew_credits]
 
 
-def _make_request(api_key, url):
-    api_dict = {"api_key": api_key}
+def _make_request(api_key: str, url: str) -> Any:
+    api_dict: Dict[str, str] = {"api_key": api_key}
 
-    headers = {
+    headers: Dict[str, str] = {
         "Content-Type": "application/json",
         "Accept": "application/json",
         "Connection": "close",
     }
 
-    response = requests.get(
+    response: Response = requests.get(
         url,
         params=api_dict,
         headers=headers,
@@ -128,7 +129,7 @@ def _make_request(api_key, url):
     return response.json()
 
 
-def _parse_movie_credits(films):
+def _parse_movie_credits(films: List[Any]) -> List[str]:
     # Filter out any documentaries (whose genre ID is 99).
     films = list(filter(lambda x: 99 not in x['genre_ids'], films))
 
@@ -136,19 +137,19 @@ def _parse_movie_credits(films):
     return list(set([film['title'] for film in films]))
 
 
-def _query_movie_credits(api_key, movie_name):
-    movie_query_url = f"{BASE_URL}/search/movie?query={movie_name}"
+def _query_movie_credits(api_key: str, movie_name: str) -> Tuple[str, Any]:
+    movie_query_url: str = f"{BASE_URL}/search/movie?query={movie_name}"
 
-    movie_response = _make_request(api_key, movie_query_url)
+    movie_response: Any = _make_request(api_key, movie_query_url)
 
     if not movie_response['results']:
         raise RuntimeError(f"Query for movie {movie_name} failed")
 
-    movie_id = movie_response["results"][0]["id"]
+    movie_id: int = movie_response["results"][0]["id"]
 
-    movie_credits_url = f"{BASE_URL}/movie/{movie_id}/credits"
+    movie_credits_url: str = f"{BASE_URL}/movie/{movie_id}/credits"
 
-    movie_credits_response = _make_request(api_key, movie_credits_url)
+    movie_credits_response: Any = _make_request(api_key, movie_credits_url)
 
     if not movie_credits_response['id']:
         raise RuntimeError(f"Query for movie credits for movie {movie_id} failed")
@@ -161,22 +162,22 @@ def _query_movie_credits(api_key, movie_name):
     return (movie_response['results'][0]['title'], movie_credits_response)
 
 
-def _query_person_movie_credits(api_key, person_id):
-    movie_credits_query_url = f"{BASE_URL}/person/{person_id}/movie_credits"
+def _query_person_movie_credits(api_key: str, person_id: int) -> Tuple[List[str], List[str]]:
+    movie_credits_query_url: str = f"{BASE_URL}/person/{person_id}/movie_credits"
 
-    movie_credits_response = _make_request(api_key, movie_credits_query_url)
+    movie_credits_response: Any = _make_request(api_key, movie_credits_query_url)
 
     if not movie_credits_response['id']:
         raise RuntimeError(f"Query for movie credits for person {person_id} failed")
 
-    cast_credits = _parse_movie_credits(movie_credits_response["cast"])
-    crew_credits = _parse_movie_credits(movie_credits_response["crew"])
+    cast_credits: List[str] = _parse_movie_credits(movie_credits_response["cast"])
+    crew_credits: List[str] = _parse_movie_credits(movie_credits_response["crew"])
 
     return cast_credits, crew_credits
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser(prog="TMDB Query", description="Query TMDB for film links")
+    parser: ArgumentParser = ArgumentParser(prog="TMDB Query", description="Query TMDB for film links")
 
     parser.add_argument("--api_key", help="The TMDB API key")
 
@@ -185,7 +186,7 @@ if __name__ == "__main__":
     query_group.add_argument("--movie", help="The name of the movie to query")
     query_group.add_argument("--person", help="The name of the movie to query")
 
-    args = parser.parse_args()
+    args: Namespace = parser.parse_args()
 
     # Either movie name or person must be set so don't need to check both values.
     try:
