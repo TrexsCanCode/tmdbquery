@@ -1,4 +1,5 @@
 from argparse import ArgumentParser, Namespace
+from os import environ
 from typing import Any, Dict, List, Tuple
 
 import requests
@@ -188,16 +189,26 @@ if __name__ == "__main__":
 
     args: Namespace = parser.parse_args()
 
-    # Either movie name or person must be set so don't need to check both values.
-    try:
-        if args.find_link:
-            find_link(args.api_key, args.find_link[0], args.find_link[1])
-        if args.movie:
-            query_tmdb_movie(args.api_key, args.movie)
-        elif args.person:
-            query_tmdb_person(args.api_key, args.person)
-    except HTTPError as e:
-        print("Error occurred whilst querying tmdb")
-        print(e.args[0])
-    except RuntimeError as e:
-        print(e)
+    # Check that we have an API key, either from the command line arguments
+    # or an environment variable.
+    api_key: str | None = args.api_key
+    if not args.api_key:
+        api_key = environ.get("TMDB_API_KEY")
+
+    if api_key:
+        # The query types have to be set due to the ArgumentParser configuration
+        # so we don't need to check if a value has been set.
+        try:
+            if args.find_link:
+                find_link(api_key, args.find_link[0], args.find_link[1])
+            if args.movie:
+                query_tmdb_movie(api_key, args.movie)
+            elif args.person:
+                query_tmdb_person(api_key, args.person)
+        except HTTPError as e:
+            print("Error occurred whilst querying TMDB")
+            print(e.args[0])
+        except RuntimeError as e:
+            print(e)
+    else:
+        print("No TMDB API key was provided through the command line args or \'TMDB_API_KEY\' environment variable")
