@@ -130,12 +130,19 @@ def _make_request(api_key: str, url: str) -> Any:
     return response.json()
 
 
-def _parse_movie_credits(films: List[Any]) -> List[str]:
-    # Filter out any documentaries (whose genre ID is 99).
-    films = list(filter(lambda x: 99 not in x['genre_ids'], films))
+def _parse_movie_credits(movie_credits: List[Any]) -> List[str]:
+    # Filter out movies by the following:
+    # * No documentaries (genre ID 99).
+    # * Vote count must be greater than 10.
+    movie_credits = list(
+        filter(
+            lambda x: 99 not in x['genre_ids'],
+            filter(lambda x: x['vote_count'] > 10, movie_credits),
+        )
+    )
 
     # Movie credits may contain duplicates, particular for crew credits, so filter them out via a set.
-    return list(set([film['title'] for film in films]))
+    return list(set([movie_credit['title'] for movie_credit in movie_credits]))
 
 
 def _query_movie_credits(api_key: str, movie_name: str) -> Tuple[str, Any]:
