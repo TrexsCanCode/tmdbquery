@@ -46,23 +46,21 @@ def find_link(api_key: str, movie_from_name: str, movie_to_name: str) -> None:
             [print(f"\t{crew}") for crew in common_crew]
 
 
-def query_tmdb_movie(api_key: str, movie_name: str) -> None:
+def query_tmdb_movie(api_key: str, movie_name: str) -> Tuple[str, Dict[str, List[str]], Dict[str, Tuple[List[str], List[str]]]]:
     (movie_name, movie_credits_response) = _query_movie_credits(api_key, movie_name)
-
-    print(movie_name)
 
     # Limit the cast to 10.
     count: int = 0
-    print("\tCast")
+
+    cast_credits_results: Dict[str, List[str]] = {}
     for credit in movie_credits_response["cast"]:
-        print(f"\t\t{credit['name']}")
+        cast_name = credit['name']
 
         # Follow the links for this person.
         person_id: int = credit['id']
         (cast_credits, _) = _query_person_movie_credits(api_key, person_id)
         cast_credits = list(filter(lambda x: x.casefold() != movie_name.casefold(), cast_credits))
-
-        [print(f"\t\t\t{film}") for film in cast_credits]
+        cast_credits_results[cast_name] = cast_credits
 
         count = count + 1
         if count >= 10:
@@ -87,34 +85,24 @@ def query_tmdb_movie(api_key: str, movie_name: str) -> None:
 
             crew_credits_results[crew_name] = ([credit['job']], full_credits)
 
-    # Now print out the crew credits.
-    print("\tCrew")
-    for name, (roles, credits) in crew_credits_results.items():
-        print(f"\t\t{name} - {', '.join(roles)}")
-        [print(f"\t\t\t{film}") for film in credits]
+    return (movie_name, cast_credits_results, crew_credits_results)
 
 
-def query_tmdb_person(api_key: str, person: str) -> None:
+def query_tmdb_person(api_key: str, person: str) -> Tuple[str, List[str], List[str]]:
     person_query_url: str = f"{BASE_URL}/search/person?query={person}"
 
     person_response: Any = _make_request(api_key, person_query_url)
 
     # The Movie DB search might do some fuzzy searching based on the name
     # given so print the name of the person the results actually respond to.
-    print(person_response['results'][0]['name'])
+    person_name = person_response['results'][0]['name']
 
     # Get the person's ID to then get their movie credits.
     person_id: int = person_response['results'][0]['id']
 
     (cast_credits, crew_credits) = _query_person_movie_credits(api_key, person_id)
 
-    if cast_credits:
-        print("\tCast")
-        [print(f"\t\t{film}") for film in cast_credits]
-
-    if crew_credits:
-        print("\tCrew")
-        [print(f"\t\t{film}") for film in crew_credits]
+    return (person_name, cast_credits, crew_credits)
 
 
 def _make_request(api_key: str, url: str) -> Any:
@@ -194,6 +182,7 @@ if __name__ == "__main__":
     parser: ArgumentParser = ArgumentParser(prog="TMDB Query", description="Query TMDB for film links")
 
     parser.add_argument("--api_key", help="The TMDB API key")
+    parser.add_argument("--md", help="Print the output in MD format", action='store_true')
 
     query_group = parser.add_mutually_exclusive_group(required=True)
     query_group.add_argument("--find_link", help="Find the link between two movies", nargs=2)
@@ -215,9 +204,44 @@ if __name__ == "__main__":
             if args.find_link:
                 find_link(api_key, args.find_link[0], args.find_link[1])
             if args.movie:
-                query_tmdb_movie(api_key, args.movie)
+                (movie_name, cast_results, crew_results) = query_tmdb_movie(api_key, args.movie)
+
+                if args.md:
+                    print(f"### {movie_name}")
+                    print("#### Cast")
+                    for name, credits in cast_results.items():
+                        print(f"##### {name}")
+                        [print(f"###### {movie}") for movie in credits]
+                    print("#### Crew")
+                    for name, (roles, credits) in crew_results.items():
+                        print(f"##### {name} - {', '.join(roles)}")
+                        [print(f"###### {movie}") for movie in credits]
+                else:
+                    print(movie_name)
+                    print("\tCast")
+                    for name, credits in cast_results.items():
+                        print(f"\t\t{name}")
+                        [print(f"\t\t\t{movie}") for movie in credits]
+                    print("\tCrew")
+                    for name, (roles, credits) in crew_results.items():
+                        print(f"\t\t{name} - {', '.join(roles)}")
+                        [print(f"\t\t\t{movie}") for movie in credits]
+
             elif args.person:
-                query_tmdb_person(api_key, args.person)
+                (person_name, cast_credits, crew_credits) = query_tmdb_person(api_key, args.person)
+
+                if args.md:
+                    print(f"### {person_name}")
+                    print("#### Cast")
+                    [print(f"##### {movie}") for movie in cast_credits]
+                    print("#### Crew")
+                    [print(f"##### {movie}") for movie in crew_credits]
+                else:
+                    print(person_name)
+                    print("\tCast")
+                    [print(f"\t\t {movie}") for movie in cast_credits]
+                    print("\tCrew")
+                    [print(f"\t\t {movie}") for movie in crew_credits]
         except HTTPError as e:
             print("Error occurred whilst querying TMDB")
             print(e.args[0])
