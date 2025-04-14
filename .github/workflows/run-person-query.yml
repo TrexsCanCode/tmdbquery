@@ -1,10 +1,10 @@
-name: Run TMDB query
+name: Run TMDB person query
 
 on:
   workflow_dispatch:
     inputs:
-      movie:
-        description: 'Movie to query'
+      person:
+        description: 'Person to query'
         required: true
         type: string
 
@@ -24,4 +24,4 @@ jobs:
           pip install -r requirements.txt
       - name: Run query
         run: |
-            python tmdbquery.py --api_key ${{ secrets.TMDB_API_KEY }} --movie ${{ github.event.inputs.movie}}
+            python tmdbquery.py --api_key ${{ secrets.TMDB_API_KEY }} --person "${{ github.event.inputs.person }}" --md >> $GITHUB_STEP_SUMMARY
