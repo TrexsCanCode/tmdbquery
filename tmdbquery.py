@@ -60,32 +60,38 @@ def query_tmdb_movie(api_key: str, movie_name: str) -> None:
         # Follow the links for this person.
         person_id: int = credit['id']
         (cast_credits, _) = _query_person_movie_credits(api_key, person_id)
+        cast_credits = list(filter(lambda x: x.casefold() != movie_name.casefold(), cast_credits))
 
-        [print(f"\t\t\t{film}") for film in cast_credits if film.casefold() != movie_name.casefold()]
+        [print(f"\t\t\t{film}") for film in cast_credits]
 
         count = count + 1
         if count >= 10:
             break
 
     # Loop through the crew response, keeping track of who we have already requested.
-    crew_credits: Dict[str, Tuple[List[str], List[str]]] = {}
+    crew_credits_results: Dict[str, Tuple[List[str], List[str]]] = {}
     for credit in movie_credits_response["crew"]:
         crew_name: str = credit['name']
-        crew_details = crew_credits.get(crew_name)
+        crew_details = crew_credits_results.get(crew_name)
         if crew_details:
             # Have already got credits for this crew member so just add the new role to the role list.
             crew_details[0].append(credit['job'])
         else:
             # Haven't got this person's credits yet so follow the links for this person.
             person_id = credit['id']
-            (cast_credits, _) = _query_person_movie_credits(api_key, person_id)
-            crew_credits[crew_name] = ([credit['job']], cast_credits)
+            (cast_credits, crew_credits) = _query_person_movie_credits(api_key, person_id)
+
+            # Create a combined list of both the cast and crew credits (with no duplicates).
+            full_credits: List[str] = list(filter(lambda x: x.casefold() != movie_name.casefold(), cast_credits))
+            full_credits.extend(x for x in crew_credits if x.casefold() != movie_name.casefold() and x not in full_credits)
+
+            crew_credits_results[crew_name] = ([credit['job']], full_credits)
 
     # Now print out the crew credits.
     print("\tCrew")
-    for name, (roles, credits) in crew_credits.items():
+    for name, (roles, credits) in crew_credits_results.items():
         print(f"\t\t{name} - {', '.join(roles)}")
-        [print(f"\t\t\t{film}") for film in credits if film.casefold() != movie_name.casefold()]
+        [print(f"\t\t\t{film}") for film in credits]
 
 
 def query_tmdb_person(api_key: str, person: str) -> None:
