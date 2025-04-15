@@ -1,4 +1,5 @@
 from argparse import ArgumentParser, Namespace
+from datetime import datetime
 from os import environ
 from typing import Any, Dict, List, Tuple
 
@@ -94,7 +95,7 @@ def query_tmdb_person(api_key: str, person: str) -> Tuple[str, List[str], List[s
     person_response: Any = _make_request(api_key, person_query_url)
 
     # The Movie DB search might do some fuzzy searching based on the name
-    # given so print the name of the person the results actually respond to.
+    # provided so print the name of the person the results actually respond to.
     person_name = person_response['results'][0]['name']
 
     # Get the person's ID to then get their movie credits.
@@ -103,6 +104,10 @@ def query_tmdb_person(api_key: str, person: str) -> Tuple[str, List[str], List[s
     (cast_credits, crew_credits) = _query_person_movie_credits(api_key, person_id)
 
     return (person_name, cast_credits, crew_credits)
+
+
+def _get_year_from_release_data(release_date: str) -> int:
+    return datetime.strptime(release_date, '%Y-%m-%d').year
 
 
 def _make_request(api_key: str, url: str) -> Any:
@@ -135,8 +140,16 @@ def _parse_movie_credits(movie_credits: List[Any]) -> List[str]:
         )
     )
 
-    # Movie credits may contain duplicates, particular for crew credits, so filter them out via a set.
-    return list(set([movie_credit['title'] for movie_credit in movie_credits]))
+    # Add the release year to the movie title and remove duplicate movies
+    # (likely to occur for for crew credits) by filtering them out via a set.
+    return list(
+        set(
+            [
+                f"{movie_credit['title']} ({_get_year_from_release_data(movie_credit['release_date'])})"
+                for movie_credit in movie_credits
+            ]
+        )
+    )
 
 
 def _query_movie_credits(api_key: str, movie_name: str) -> Tuple[str, Any]:
@@ -147,7 +160,8 @@ def _query_movie_credits(api_key: str, movie_name: str) -> Tuple[str, Any]:
     if not movie_response['results']:
         raise RuntimeError(f"Query for movie {movie_name} failed")
 
-    movie_id: int = movie_response["results"][0]["id"]
+    movie_response_data: Any = movie_response['results'][0]
+    movie_id: int = movie_response_data["id"]
 
     movie_credits_url: str = f"{BASE_URL}/movie/{movie_id}/credits"
 
@@ -160,8 +174,10 @@ def _query_movie_credits(api_key: str, movie_name: str) -> Tuple[str, Any]:
     movie_credits_response["crew"] = [n for n in movie_credits_response["crew"] if n.get('job') in REQUIRED_CREW_ROLES]
 
     # The Movie DB query might do some fuzzy searching based on the movie name
-    # given so return the actual movie name alongside the credits.
-    return (movie_response['results'][0]['title'], movie_credits_response)
+    # provided so return the actual movie name plus release year, alongside the credits.
+    movie_name = f"{movie_response_data['title']} ({_get_year_from_release_data(movie_response_data['release_date'])})"
+
+    return (movie_name, movie_credits_response)
 
 
 def _query_person_movie_credits(api_key: str, person_id: int) -> Tuple[List[str], List[str]]:
@@ -175,7 +191,7 @@ def _query_person_movie_credits(api_key: str, person_id: int) -> Tuple[List[str]
     cast_credits: List[str] = _parse_movie_credits(movie_credits_response["cast"])
     crew_credits: List[str] = _parse_movie_credits(movie_credits_response["crew"])
 
-    return cast_credits, crew_credits
+    return (cast_credits, crew_credits)
 
 
 if __name__ == "__main__":
