@@ -2,7 +2,7 @@ from unittest import TestCase
 
 import pytest
 
-from tmdbquery import _parse_movie_credits, find_link, _get_year_from_release_date
+from tmdbquery import _get_year_from_release_date, _parse_movie_credits, find_link
 
 
 class TestTmdbQuery(TestCase):
