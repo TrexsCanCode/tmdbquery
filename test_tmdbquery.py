@@ -19,34 +19,28 @@ class TestTmdbQuery(TestCase):
         )
 
     def test_parse_movie_credits_removes_documentaries(self):
+        release_year = 2000
         test_movies = [
-            {"title": "NotDocumentary", "genre_ids": [28]},
-            {"title": "Documentary", "genre_ids": [99]},
-            {"title": "PartDocumentary", "genre_ids": [28, 99]},
+            {"title": "NotDocumentary", "genre_ids": [28], "release_date": f"{release_year}-01-01", "vote_count": 20},
+            {"title": "Documentary", "genre_ids": [99], "release_date": f"{release_year}-01-01", "vote_count": 20},
+            {"title": "PartDocumentary", "genre_ids": [28, 99], "release_date": f"{release_year}-01-01", "vote_count": 20},
         ]
 
         filtered_movies = _parse_movie_credits(test_movies)
 
         self.assertEqual(1, len(filtered_movies))
-        self.assertEqual(test_movies[0]["title"], filtered_movies[0])
+        self.assertEqual(f"{test_movies[0]["title"]} ({release_year})", filtered_movies[0])
 
     def test_parse_movie_credits_removes_duplicates(self):
+        release_year = 2000
         test_movies = [
-            {"title": "FirstMovie", "genre_ids": [28]},
-            {"title": "SecondMovie", "genre_ids": [28]},
-            {"title": "FirstMovie", "genre_ids": [28]},
+            {"title": "FirstMovie", "genre_ids": [28], "release_date": f"{release_year}-01-01", "vote_count": 20},
+            {"title": "SecondMovie", "genre_ids": [28], "release_date": f"{release_year}-01-01", "vote_count": 20},
+            {"title": "FirstMovie", "genre_ids": [28], "release_date": f"{release_year}-01-01", "vote_count": 20},
         ]
 
         filtered_movies = _parse_movie_credits(test_movies)
 
         self.assertEqual(2, len(filtered_movies))
-        self.assertIn(test_movies[0]["title"], filtered_movies)
-        self.assertIn(test_movies[1]["title"], filtered_movies)
-
-    def test_query_tmdb_person_returns_expected_output(self):
-        query_tmdb_person("apikey", "person")
-        out, _ = self.capsys.readouterr()
-
-        print(out)
-
-        self.assertFalse(True)
+        self.assertIn(f"{test_movies[0]["title"]} ({release_year})", filtered_movies)
+        self.assertIn(f"{test_movies[1]["title"]} ({release_year})", filtered_movies)
