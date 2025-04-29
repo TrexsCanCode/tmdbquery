@@ -248,16 +248,20 @@ if __name__ == "__main__":
 
                 if args.md:
                     print(f"### {person_name}")
-                    print("#### Cast")
-                    [print(f"##### {movie}") for movie in cast_credits]
-                    print("#### Crew")
-                    [print(f"##### {movie}") for movie in crew_credits]
+                    if cast_credits:
+                        print("#### Cast")
+                        [print(f"##### {movie}") for movie in cast_credits]
+                    if crew_credits:
+                        print("#### Crew")
+                        [print(f"##### {movie}") for movie in crew_credits]
                 else:
                     print(person_name)
-                    print("\tCast")
-                    [print(f"\t\t {movie}") for movie in cast_credits]
-                    print("\tCrew")
-                    [print(f"\t\t {movie}") for movie in crew_credits]
+                    if cast_credits:
+                        print("\tCast")
+                        [print(f"\t\t {movie}") for movie in cast_credits]
+                    if crew_credits:
+                        print("\tCrew")
+                        [print(f"\t\t {movie}") for movie in crew_credits]
         except HTTPError as e:
             print("Error occurred whilst querying TMDB")
             print(e.args[0])
