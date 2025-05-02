@@ -2,7 +2,7 @@ from unittest import TestCase
 
 import pytest
 
-from tmdbquery import _get_year_from_release_date, _parse_movie_credits, find_link
+from tmdbquery import _generate_movie_title, _parse_movie_credits, find_link
 
 
 class TestTmdbQuery(TestCase):
@@ -10,11 +10,22 @@ class TestTmdbQuery(TestCase):
     def capsys(self, capsys):
         self.capsys = capsys
 
-    def test_get_year_from_release_date_returns_expected_value(self):
-        release_year = 2000
-        release_date_str = f"{release_year}-01-01"
+    def test_generate_movie_title_returns_title_with_no_year_if_no_release_date_set(self):
+        movie_title = "Movie"
 
-        self.assertEqual(release_year, _get_year_from_release_date(release_date_str))
+        test_movie = {"title": movie_title, "release_date": ""}
+
+        self.assertEqual(movie_title, _generate_movie_title(test_movie))
+
+    def test_generate_movie_title_returns_title_with_year_if_release_date_set(self):
+        movie_title = "Movie"
+        release_year = 2000
+
+        test_movie = {"title": movie_title, "release_date": f"{release_year}-01-01"}
+
+        generated_movie_title = _generate_movie_title(test_movie)
+
+        self.assertEqual(f"{movie_title} ({release_year})", generated_movie_title)
 
     def test_find_link_returns_early_if_movie_names_are_the_same(self):
         find_link("apikey", "movie", "movie")

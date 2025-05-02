@@ -106,8 +106,13 @@ def query_tmdb_person(api_key: str, person: str) -> Tuple[str, List[str], List[s
     return (person_name, cast_credits, crew_credits)
 
 
-def _get_year_from_release_date(release_date: str) -> int:
-    return datetime.strptime(release_date, '%Y-%m-%d').year
+def _generate_movie_title(movie_data: Dict[str, str]) -> str:
+    movie_title_str: str = movie_data['title']
+    if movie_data['release_date']:
+        release_year: int = datetime.strptime(movie_data['release_date'], '%Y-%m-%d').year
+        movie_title_str = f"{movie_title_str} ({release_year})"
+
+    return movie_title_str
 
 
 def _make_request(api_key: str, url: str) -> Any:
@@ -145,7 +150,7 @@ def _parse_movie_credits(movie_credits: List[Any]) -> List[str]:
     return list(
         set(
             [
-                f"{movie_credit['title']} ({_get_year_from_release_date(movie_credit['release_date'])})"
+                _generate_movie_title(movie_credit)
                 for movie_credit in movie_credits
             ]
         )
@@ -175,7 +180,7 @@ def _query_movie_credits(api_key: str, movie_name: str) -> Tuple[str, Any]:
 
     # The Movie DB query might do some fuzzy searching based on the movie name
     # provided so return the actual movie name plus release year, alongside the credits.
-    movie_name = f"{movie_response_data['title']} ({_get_year_from_release_date(movie_response_data['release_date'])})"
+    movie_name = _generate_movie_title(movie_response_data)
 
     return (movie_name, movie_credits_response)
 
