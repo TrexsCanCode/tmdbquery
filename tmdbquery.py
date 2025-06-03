@@ -50,9 +50,6 @@ def find_link(api_key: str, movie_from_name: str, movie_to_name: str) -> None:
 def query_tmdb_movie(api_key: str, movie_name: str) -> Tuple[str, Dict[str, List[str]], Dict[str, Tuple[List[str], List[str]]]]:
     (movie_name, movie_credits_response) = _query_movie_credits(api_key, movie_name)
 
-    # Limit the cast to 10.
-    count: int = 0
-
     cast_credits_results: Dict[str, List[str]] = {}
     for credit in movie_credits_response["cast"]:
         cast_name = credit['name']
@@ -62,10 +59,6 @@ def query_tmdb_movie(api_key: str, movie_name: str) -> Tuple[str, Dict[str, List
         (cast_credits, _) = _query_person_movie_credits(api_key, person_id)
         cast_credits = list(filter(lambda x: x.casefold() != movie_name.casefold(), cast_credits))
         cast_credits_results[cast_name] = cast_credits
-
-        count = count + 1
-        if count >= 10:
-            break
 
     # Loop through the crew response, keeping track of who we have already requested.
     crew_credits_results: Dict[str, Tuple[List[str], List[str]]] = {}
