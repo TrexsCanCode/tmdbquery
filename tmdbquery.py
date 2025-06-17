@@ -11,7 +11,7 @@ from requests.exceptions import HTTPError
 BASE_URL: str = "https://api.themoviedb.org/3"
 
 # List of the crew roles that we are interested in.
-REQUIRED_CREW_ROLES: List[str] = ["Director", "Writer", "Director of Photography", "Original Music Composer"]
+REQUIRED_CREW_ROLES: List[str] = ["Director", "Director of Photography", "Original Music Composer", "Screenplay", "Writer"]
 
 
 def find_link(api_key: str, movie_from_name: str, movie_to_name: str) -> None:
@@ -169,7 +169,15 @@ def _query_movie_credits(api_key: str, movie_name: str) -> Tuple[str, Any]:
         raise RuntimeError(f"Query for movie credits for movie {movie_id} failed")
 
     # Filter the crew credits to only the roles we are interested in.
-    movie_credits_response["crew"] = [n for n in movie_credits_response["crew"] if n.get('job') in REQUIRED_CREW_ROLES]
+    filtered_crew_list: List[Any] = []
+    for crew_member in movie_credits_response["crew"]:
+        if crew_member.get('job') in REQUIRED_CREW_ROLES:
+            if crew_member.get('job') == "Screenplay":
+                crew_member["job"] = "Writer"
+
+            filtered_crew_list.append(crew_member)
+
+    movie_credits_response["crew"] = filtered_crew_list
 
     # The Movie DB query might do some fuzzy searching based on the movie name
     # provided so return the actual movie name plus release year, alongside the credits.
