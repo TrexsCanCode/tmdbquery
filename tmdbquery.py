@@ -1,7 +1,7 @@
 from argparse import ArgumentParser, Namespace
 from datetime import datetime
 from os import environ
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 from requests import Response
@@ -19,9 +19,9 @@ def find_link(api_key: str, movie_from_name: str, movie_to_name: str) -> None:
         print("Must provide two different movies to find link between")
         return
 
-    (movie_from_name, movie_from_credits_response) = _query_movie_credits(api_key, movie_from_name)
+    (movie_from_name, movie_from_credits_response) = _query_movie_credits_by_title(api_key, movie_from_name)
 
-    (movie_to_name, movie_to_credits_response) = _query_movie_credits(api_key, movie_to_name)
+    (movie_to_name, movie_to_credits_response) = _query_movie_credits_by_title(api_key, movie_to_name)
 
     # Get the list of cast from both films and compare them.
     cast_from_names: List[str] = [n.get('name') for n in movie_from_credits_response["cast"]]
@@ -47,8 +47,10 @@ def find_link(api_key: str, movie_from_name: str, movie_to_name: str) -> None:
             [print(f"\t{crew}") for crew in common_crew]
 
 
-def query_tmdb_movie(api_key: str, movie_name: str) -> Tuple[str, Dict[str, List[str]], Dict[str, Tuple[List[str], List[str]]]]:
-    (movie_name, movie_credits_response) = _query_movie_credits(api_key, movie_name)
+def query_tmdb_movie(
+    api_key: str, movie_name: str, year: Optional[int]
+) -> Tuple[str, Dict[str, List[str]], Dict[str, Tuple[List[str], List[str]]]]:
+    (movie_name, movie_credits_response) = _query_movie_credits_by_title(api_key, movie_name, year)
 
     cast_credits_results: Dict[str, List[str]] = {}
     for credit in movie_credits_response["cast"]:
@@ -150,7 +152,7 @@ def _parse_movie_credits(movie_credits: List[Any]) -> List[str]:
     )
 
 
-def _query_movie_credits(api_key: str, movie_name: str) -> Tuple[str, Any]:
+def _query_movie_credits_by_title(api_key: str, movie_name: str, year: Optional[int] = None) -> Tuple[str, Any]:
     movie_query_url: str = f"{BASE_URL}/search/movie?query={movie_name}"
 
     movie_response: Any = _make_request(api_key, movie_query_url)
@@ -158,15 +160,25 @@ def _query_movie_credits(api_key: str, movie_name: str) -> Tuple[str, Any]:
     if not movie_response['results']:
         raise RuntimeError(f"Query for movie {movie_name} failed")
 
-    movie_response_data: Any = movie_response['results'][0]
-    movie_id: int = movie_response_data["id"]
+    # If we have been provided with a year we need search the results for
+    # a movie with the expected year, otherwise just take the first result.
+    movie_response_data: Optional[Any] = None
+    if year:
+        for movie_data in movie_response['results']:
+            # Not all movies will have a release date.
+            if movie_data['release_date']:
+                release_year: int = datetime.strptime(movie_data['release_date'], '%Y-%m-%d').year
+                if release_year == year:
+                    movie_response_data = movie_data
+                    break
 
-    movie_credits_url: str = f"{BASE_URL}/movie/{movie_id}/credits"
+        # If no movie was found throw error.
+        if not movie_response_data:
+            raise RuntimeError(f"Failed to movie with title {movie_name} and release year {year}")
+    else:
+        movie_response_data = movie_response['results'][0]
 
-    movie_credits_response: Any = _make_request(api_key, movie_credits_url)
-
-    if not movie_credits_response['id']:
-        raise RuntimeError(f"Query for movie credits for movie {movie_id} failed")
+    movie_credits_response: Any = _query_movie_credits_by_id(api_key, movie_response_data["id"])
 
     # Filter the crew credits to only the roles we are interested in.
     filtered_crew_list: List[Any] = []
@@ -184,6 +196,17 @@ def _query_movie_credits(api_key: str, movie_name: str) -> Tuple[str, Any]:
     movie_name = _generate_movie_title(movie_response_data)
 
     return (movie_name, movie_credits_response)
+
+
+def _query_movie_credits_by_id(api_key: str, movie_id: int) -> Any:
+    movie_credits_url: str = f"{BASE_URL}/movie/{movie_id}/credits"
+
+    movie_credits_response: Any = _make_request(api_key, movie_credits_url)
+
+    if not movie_credits_response['id']:
+        raise RuntimeError(f"Query for movie credits for movie {movie_id} failed")
+
+    return movie_credits_response
 
 
 def _query_person_movie_credits(api_key: str, person_id: int) -> Tuple[List[str], List[str]]:
@@ -211,7 +234,18 @@ if __name__ == "__main__":
     query_group.add_argument("--movie", help="The name of the movie to query")
     query_group.add_argument("--person", help="The name of the movie to query")
 
+    # Add additional 'year' argument that can only be used with the 'movie' argument.
+    parser.add_argument(
+        "--year",
+        type=int,
+        choices=range(1900, datetime.now().year + 1),
+        help="Specify the year of the movie being requested",
+    )
+
     args: Namespace = parser.parse_args()
+
+    if args.year and not args.movie:
+        parser.error("--year can only be used in conjunction with --movie")
 
     # Check that we have an API key, either from the command line arguments
     # or an environment variable.
@@ -226,7 +260,7 @@ if __name__ == "__main__":
             if args.find_link:
                 find_link(api_key, args.find_link[0], args.find_link[1])
             if args.movie:
-                (movie_name, cast_results, crew_results) = query_tmdb_movie(api_key, args.movie)
+                (movie_name, cast_results, crew_results) = query_tmdb_movie(api_key, args.movie, args.year)
 
                 if args.md:
                     print(f"### {movie_name}")

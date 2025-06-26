@@ -17,8 +17,21 @@ The script takes at least two arguments:
 Run the script like:
 
 ```
-python tmdbquery.py --api_key aaaaaa --movie Twister
+python tmdbquery.py --api_key aaaaaa --movie Inception
 ```
+
+### Movie queries
+
+By default querying for a movie will return the first entry that matches the given name (fuzzy searching may be used),
+to request a movie from a certain year the ```--year``` argument can be used.
+
+```
+python tmdbquery.py --api_key aaaaaa --movie Inception --year 2010
+```
+
+### API key
+
+Rather than passing the TMDB API key in every time it can also be stored in the environment variable: ```TMDB_API_KEY```.
 
 ### Note
 Movie or people names are not case sensitive and any names with spaces must be wrapped in quotation marks.
