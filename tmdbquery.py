@@ -11,7 +11,7 @@ from requests.exceptions import HTTPError
 BASE_URL: str = "https://api.themoviedb.org/3"
 
 # List of the crew roles that we are interested in.
-REQUIRED_CREW_ROLES: List[str] = ["Director", "Director of Photography", "Original Music Composer", "Screenplay", "Writer"]
+REQUIRED_CREW_ROLES: List[str] = ["Director", "Director of Photography", "Novel", "Original Music Composer", "Screenplay", "Writer"]
 
 
 def find_link(api_key: str, movie_from_title: str, movie_to_title: str) -> None:
@@ -184,7 +184,7 @@ def _query_movie_credits_by_title(api_key: str, movie_title: str, year: Optional
     filtered_crew_list: List[Any] = []
     for crew_member in movie_credits_response["crew"]:
         if crew_member.get('job') in REQUIRED_CREW_ROLES:
-            if crew_member.get('job') == "Screenplay":
+            if crew_member.get('job') == "Novel" or crew_member.get('job') == "Screenplay":
                 crew_member["job"] = "Writer"
 
             filtered_crew_list.append(crew_member)
