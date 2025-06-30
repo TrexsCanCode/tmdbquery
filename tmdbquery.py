@@ -14,14 +14,14 @@ BASE_URL: str = "https://api.themoviedb.org/3"
 REQUIRED_CREW_ROLES: List[str] = ["Director", "Director of Photography", "Original Music Composer", "Screenplay", "Writer"]
 
 
-def find_link(api_key: str, movie_from_name: str, movie_to_name: str) -> None:
-    if movie_from_name == movie_to_name:
+def find_link(api_key: str, movie_from_title: str, movie_to_title: str) -> None:
+    if movie_from_title == movie_to_title:
         print("Must provide two different movies to find link between")
         return
 
-    (movie_from_name, movie_from_credits_response) = _query_movie_credits_by_title(api_key, movie_from_name)
+    (movie_from_title, movie_from_credits_response) = _query_movie_credits_by_title(api_key, movie_from_title)
 
-    (movie_to_name, movie_to_credits_response) = _query_movie_credits_by_title(api_key, movie_to_name)
+    (movie_to_title, movie_to_credits_response) = _query_movie_credits_by_title(api_key, movie_to_title)
 
     # Get the list of cast from both films and compare them.
     cast_from_names: List[str] = [n.get('name') for n in movie_from_credits_response["cast"]]
@@ -36,9 +36,9 @@ def find_link(api_key: str, movie_from_name: str, movie_to_name: str) -> None:
     common_crew: List[str] = list(set(crew_from_names).intersection(crew_to_names))
 
     if not common_cast and not common_crew:
-        print(f"No links found between {movie_from_name} and {movie_to_name}")
+        print(f"No links found between {movie_from_title} and {movie_to_title}")
     else:
-        print(f"Found the following links between {movie_from_name} and {movie_to_name}:\n")
+        print(f"Found the following links between {movie_from_title} and {movie_to_title}:\n")
         if common_cast:
             print("Cast links:")
             [print(f"\t{cast}") for cast in common_cast]
@@ -48,9 +48,9 @@ def find_link(api_key: str, movie_from_name: str, movie_to_name: str) -> None:
 
 
 def query_tmdb_movie(
-    api_key: str, movie_name: str, year: Optional[int]
+    api_key: str, movie_title: str, year: Optional[int]
 ) -> Tuple[str, Dict[str, List[str]], Dict[str, Tuple[List[str], List[str]]]]:
-    (movie_name, movie_credits_response) = _query_movie_credits_by_title(api_key, movie_name, year)
+    (movie_title, movie_credits_response) = _query_movie_credits_by_title(api_key, movie_title, year)
 
     cast_credits_results: Dict[str, List[str]] = {}
     for credit in movie_credits_response["cast"]:
@@ -59,7 +59,7 @@ def query_tmdb_movie(
         # Follow the links for this person.
         person_id: int = credit['id']
         (cast_credits, _) = _query_person_movie_credits(api_key, person_id)
-        cast_credits = list(filter(lambda x: x.casefold() != movie_name.casefold(), cast_credits))
+        cast_credits = list(filter(lambda x: x.casefold() != movie_title.casefold(), cast_credits))
         cast_credits_results[cast_name] = cast_credits
 
     # Loop through the crew response, keeping track of who we have already requested.
@@ -76,12 +76,12 @@ def query_tmdb_movie(
             (cast_credits, crew_credits) = _query_person_movie_credits(api_key, person_id)
 
             # Create a combined list of both the cast and crew credits (with no duplicates).
-            full_credits: List[str] = list(filter(lambda x: x.casefold() != movie_name.casefold(), cast_credits))
-            full_credits.extend(x for x in crew_credits if x.casefold() != movie_name.casefold() and x not in full_credits)
+            full_credits: List[str] = list(filter(lambda x: x.casefold() != movie_title.casefold(), cast_credits))
+            full_credits.extend(x for x in crew_credits if x.casefold() != movie_title.casefold() and x not in full_credits)
 
             crew_credits_results[crew_name] = ([credit['job']], full_credits)
 
-    return (movie_name, cast_credits_results, crew_credits_results)
+    return (movie_title, cast_credits_results, crew_credits_results)
 
 
 def query_tmdb_person(api_key: str, person: str) -> Tuple[str, List[str], List[str]]:
@@ -152,13 +152,13 @@ def _parse_movie_credits(movie_credits: List[Any]) -> List[str]:
     )
 
 
-def _query_movie_credits_by_title(api_key: str, movie_name: str, year: Optional[int] = None) -> Tuple[str, Any]:
-    movie_query_url: str = f"{BASE_URL}/search/movie?query={movie_name}"
+def _query_movie_credits_by_title(api_key: str, movie_title: str, year: Optional[int] = None) -> Tuple[str, Any]:
+    movie_query_url: str = f"{BASE_URL}/search/movie?query={movie_title}"
 
     movie_response: Any = _make_request(api_key, movie_query_url)
 
     if not movie_response['results']:
-        raise RuntimeError(f"Query for movie {movie_name} failed")
+        raise RuntimeError(f"Query for movie {movie_title} failed")
 
     # If we have been provided with a year we need search the results for
     # a movie with the expected year, otherwise just take the first result.
@@ -174,7 +174,7 @@ def _query_movie_credits_by_title(api_key: str, movie_name: str, year: Optional[
 
         # If no movie was found throw error.
         if not movie_response_data:
-            raise RuntimeError(f"Failed to movie with title {movie_name} and release year {year}")
+            raise RuntimeError(f"Failed to movie with title {movie_title} and release year {year}")
     else:
         movie_response_data = movie_response['results'][0]
 
@@ -191,11 +191,11 @@ def _query_movie_credits_by_title(api_key: str, movie_name: str, year: Optional[
 
     movie_credits_response["crew"] = filtered_crew_list
 
-    # The Movie DB query might do some fuzzy searching based on the movie name
-    # provided so return the actual movie name plus release year, alongside the credits.
-    movie_name = _generate_movie_title(movie_response_data)
+    # The Movie DB query might do some fuzzy searching based on the movie title
+    # provided so return the actual movie title plus release year, alongside the credits.
+    movie_title = _generate_movie_title(movie_response_data)
 
-    return (movie_name, movie_credits_response)
+    return (movie_title, movie_credits_response)
 
 
 def _query_movie_credits_by_id(api_key: str, movie_id: int) -> Any:
@@ -231,8 +231,8 @@ if __name__ == "__main__":
 
     query_group = parser.add_mutually_exclusive_group(required=True)
     query_group.add_argument("--find_link", help="Find the link between two movies", nargs=2)
-    query_group.add_argument("--movie", help="The name of the movie to query")
-    query_group.add_argument("--person", help="The name of the movie to query")
+    query_group.add_argument("--movie", help="The title of the movie to query")
+    query_group.add_argument("--person", help="The name of the person to query")
 
     # Add additional 'year' argument that can only be used with the 'movie' argument.
     parser.add_argument(
@@ -260,10 +260,10 @@ if __name__ == "__main__":
             if args.find_link:
                 find_link(api_key, args.find_link[0], args.find_link[1])
             if args.movie:
-                (movie_name, cast_results, crew_results) = query_tmdb_movie(api_key, args.movie, args.year)
+                (movie_title, cast_results, crew_results) = query_tmdb_movie(api_key, args.movie, args.year)
 
                 if args.md:
-                    print(f"### {movie_name}")
+                    print(f"### {movie_title}")
                     print("#### Cast")
                     for name, credits in cast_results.items():
                         print(f"##### {name}")
@@ -273,7 +273,7 @@ if __name__ == "__main__":
                         print(f"##### {name} - {', '.join(roles)}")
                         [print(f"###### {movie}") for movie in credits]
                 else:
-                    print(movie_name)
+                    print(movie_title)
                     print("\tCast")
                     for name, credits in cast_results.items():
                         print(f"\t\t{name}")
