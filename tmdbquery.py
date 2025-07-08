@@ -223,6 +223,22 @@ def _query_person_movie_credits(api_key: str, person_id: int) -> Tuple[List[str]
     return (cast_credits, crew_credits)
 
 
+def _print(print_str: str, indentation: int, md: bool) -> None:
+    output_str: str = print_str
+    if md:
+        # To ensure that the markdown text doesn't end up massive,
+        # add a base level of indentation and add a space to front
+        # of the output string.
+        indentation = indentation + 3
+        output_str = f" {output_str}"
+
+    if indentation:
+        indentation_str: str = "#" if md else "\t"
+        output_str = f"{indentation_str * indentation}{output_str}"
+
+    print(output_str)
+
+
 if __name__ == "__main__":
     parser: ArgumentParser = ArgumentParser(prog="TMDB Query", description="Query TMDB for film links")
 
@@ -262,46 +278,31 @@ if __name__ == "__main__":
             if args.movie:
                 (movie_title, cast_results, crew_results) = query_tmdb_movie(api_key, args.movie, args.year)
 
-                if args.md:
-                    print(f"### {movie_title}")
-                    print("#### Cast")
-                    for name, credits in cast_results.items():
-                        print(f"##### {name}")
-                        [print(f"###### {movie}") for movie in credits]
-                    print("#### Crew")
-                    for name, (roles, credits) in crew_results.items():
-                        print(f"##### {name} - {', '.join(roles)}")
-                        [print(f"###### {movie}") for movie in credits]
-                else:
-                    print(movie_title)
-                    print("\tCast")
-                    for name, credits in cast_results.items():
-                        print(f"\t\t{name}")
-                        [print(f"\t\t\t{movie}") for movie in credits]
-                    print("\tCrew")
-                    for name, (roles, credits) in crew_results.items():
-                        print(f"\t\t{name} - {', '.join(roles)}")
-                        [print(f"\t\t\t{movie}") for movie in credits]
+                _print(movie_title, 0, args.md)
+                _print("Cast", 1, args.md)
+                for name, credits in cast_results.items():
+                    _print(name, 2, args.md)
+                    for movie in credits:
+                        _print(movie, 3, args.md)
 
+                _print("Crew", 1, args.md)
+                for name, (roles, credits) in crew_results.items():
+                    _print(f"{name} - {', '.join(roles)}", 2, args.md)
+                    for movie in credits:
+                        _print(movie, 3, args.md)
             elif args.person:
                 (person_name, cast_credits, crew_credits) = query_tmdb_person(api_key, args.person)
 
-                if args.md:
-                    print(f"### {person_name}")
-                    if cast_credits:
-                        print("#### Cast")
-                        [print(f"##### {movie}") for movie in cast_credits]
-                    if crew_credits:
-                        print("#### Crew")
-                        [print(f"##### {movie}") for movie in crew_credits]
-                else:
-                    print(person_name)
-                    if cast_credits:
-                        print("\tCast")
-                        [print(f"\t\t {movie}") for movie in cast_credits]
-                    if crew_credits:
-                        print("\tCrew")
-                        [print(f"\t\t {movie}") for movie in crew_credits]
+                _print(person_name, 0, args.md)
+                if cast_credits:
+                    _print("Cast", 1, args.md)
+
+                    for movie in cast_credits:
+                        _print(movie, 2, args.md)
+                if crew_credits:
+                    _print("Crew", 1, args.md)
+                    for movie in crew_credits:
+                        _print(movie, 2, args.md)
         except HTTPError as e:
             print("Error occurred whilst querying TMDB")
             print(e.args[0])
