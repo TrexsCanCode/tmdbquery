@@ -84,7 +84,7 @@ def query_tmdb_movie(
     return (movie_title, cast_credits_results, crew_credits_results)
 
 
-def query_tmdb_person(api_key: str, person: str) -> Tuple[str, List[str], List[str]]:
+def query_tmdb_person(api_key: str, person: str) -> Tuple[str, List[str], Dict[str, List[str]]]:
     person_query_url: str = f"{BASE_URL}/search/person?query={person}"
 
     person_response: Any = _make_request(api_key, person_query_url)
@@ -129,27 +129,48 @@ def _make_request(api_key: str, url: str) -> Any:
     return response.json()
 
 
-def _parse_movie_credits(movie_credits: List[Any]) -> List[str]:
+def _filter_movies(movie_credits: List[Any]) -> List[Any]:
     # Filter out movies by the following:
     # * No documentaries (genre ID 99).
     # * Vote count must be greater than 10.
-    movie_credits = list(
+    return list(
         filter(
             lambda x: 99 not in x['genre_ids'],
             filter(lambda x: x['vote_count'] > 10, movie_credits),
         )
     )
 
-    # Add the release year to the movie title and remove duplicate movies
-    # (likely to occur for for crew credits) by filtering them out via a set.
-    return list(
-        set(
-            [
-                _generate_movie_title(movie_credit)
-                for movie_credit in movie_credits
-            ]
-        )
-    )
+
+def _parse_movie_cast_credits(movie_credits: List[Any]) -> List[str]:
+    filtered_movie_credits: List[Any] = _filter_movies(movie_credits)
+
+    # Return a list of just movie title's with the release year appended.
+    return [
+        _generate_movie_title(movie_credit)
+        for movie_credit in filtered_movie_credits
+    ]
+
+
+def _parse_movie_crew_credits(movie_credits: List[Any]) -> Dict[str, List[str]]:
+    filtered_movie_credits: List[Any] = _filter_movies(movie_credits)
+
+    crew_credits_results: Dict[str, List[str]] = {}
+    for movie_credit in filtered_movie_credits:
+        movie_title = _generate_movie_title(movie_credit)
+        role = movie_credit['job']
+
+        if role in REQUIRED_CREW_ROLES:
+            if role == "Novel" or role == "Screenplay":
+                role = "Writer"
+
+            movie_entry = crew_credits_results.get(movie_title)
+            if movie_entry:
+                # Have already got credits for this crew member so just add the new role to the role list.
+                movie_entry.append(role)
+            else:
+                crew_credits_results[movie_title] = [role]
+
+    return crew_credits_results
 
 
 def _query_movie_credits_by_title(api_key: str, movie_title: str, year: Optional[int] = None) -> Tuple[str, Any]:
@@ -209,7 +230,7 @@ def _query_movie_credits_by_id(api_key: str, movie_id: int) -> Any:
     return movie_credits_response
 
 
-def _query_person_movie_credits(api_key: str, person_id: int) -> Tuple[List[str], List[str]]:
+def _query_person_movie_credits(api_key: str, person_id: int) -> Tuple[List[str], Dict[str, List[str]]]:
     movie_credits_query_url: str = f"{BASE_URL}/person/{person_id}/movie_credits"
 
     movie_credits_response: Any = _make_request(api_key, movie_credits_query_url)
@@ -217,8 +238,8 @@ def _query_person_movie_credits(api_key: str, person_id: int) -> Tuple[List[str]
     if not movie_credits_response['id']:
         raise RuntimeError(f"Query for movie credits for person {person_id} failed")
 
-    cast_credits: List[str] = _parse_movie_credits(movie_credits_response["cast"])
-    crew_credits: List[str] = _parse_movie_credits(movie_credits_response["crew"])
+    cast_credits: List[str] = _parse_movie_cast_credits(movie_credits_response["cast"])
+    crew_credits: Dict[str, List[str]] = _parse_movie_crew_credits(movie_credits_response["crew"])
 
     return (cast_credits, crew_credits)
 
@@ -301,8 +322,8 @@ if __name__ == "__main__":
                         _print(movie, 2, args.md)
                 if crew_credits:
                     _print("Crew", 1, args.md)
-                    for movie in crew_credits:
-                        _print(movie, 2, args.md)
+                    for movie, roles in crew_credits.items():
+                        _print(f"{movie} - {', '.join(roles)}", 2, args.md)
         except HTTPError as e:
             print("Error occurred whilst querying TMDB")
             print(e.args[0])
