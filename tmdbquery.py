@@ -261,7 +261,7 @@ def _print(print_str: str, indentation: int, md: bool) -> None:
         # To ensure that the markdown text doesn't end up massive,
         # add a base level of indentation and add a space to front
         # of the output string.
-        indentation = indentation + 3
+        indentation = indentation + 2
         output_str = f" {output_str}"
 
     if indentation:
