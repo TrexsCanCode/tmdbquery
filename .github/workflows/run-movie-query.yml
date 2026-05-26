@@ -9,7 +9,7 @@ on:
         type: string
 
       year:
-        description: 'Year of Movie'
+        description: 'Year of movie (optional)'
         required: false
         default: ''
         type: string
